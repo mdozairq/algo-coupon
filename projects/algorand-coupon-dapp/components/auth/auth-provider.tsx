@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Only initialize if not already initialized
           if (!authState.isAuthenticated) {
             // Initialize wallet service
-            wallet.setWallet(transactionSigner!, activeAccount);
+            wallet.setWallet(wallets[0], activeAccount, transactionSigner!);
             
             const user = await fetchUser(activeAccount.address)
             if (user) {
