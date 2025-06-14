@@ -80,23 +80,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         if (isReady && activeAccount) {
-          // Initialize wallet service
-          wallet.setWallet(transactionSigner!, activeAccount);
-          
-          const user = await fetchUser(activeAccount.address)
-          if (user) {
-            setAuthState({
-              user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-            })
-            storage.setAccount({ address: activeAccount.address, balance: 0 })
+          // Only initialize if not already initialized
+          if (!authState.isAuthenticated) {
+            // Initialize wallet service
+            wallet.setWallet(transactionSigner!, activeAccount);
             
-            toast({
-              title: "Welcome! 🎉",
-              description: `Logged in as ${user.role}`,
-            })
+            const user = await fetchUser(activeAccount.address)
+            if (user) {
+              setAuthState({
+                user,
+                isAuthenticated: true,
+                isLoading: false,
+                error: null,
+              })
+              storage.setAccount({ address: activeAccount.address, balance: 0 })
+              
+              toast({
+                title: "Welcome! 🎉",
+                description: `Logged in as ${user.role}`,
+              })
+            }
           }
         } else if (!isReady && authState.isAuthenticated) {
           setAuthState(prev => ({
@@ -117,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     handleWalletChange()
-  }, [isReady, activeAccount, authState.isAuthenticated, fetchUser, transactionSigner])
+  }, [isReady, activeAccount?.address, authState.isAuthenticated, fetchUser, transactionSigner])
 
   const refreshUser = useCallback(async () => {
     if (!activeAccount?.address) return

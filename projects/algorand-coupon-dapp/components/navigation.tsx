@@ -17,6 +17,7 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { authService } from "@/lib/auth"
 import { useCoupons } from "@/hooks/use-coupons"
 import { UserRole } from "@/types/auth"
+import { storage } from "@/lib/storage"
 
 export function Navigation() {
   const pathname = usePathname()
@@ -208,7 +209,7 @@ export function Navigation() {
                     {account && user.address !== "ADMIN_CREDENTIALS_LOGIN" && (
                       <div className="flex justify-between text-sm">
                         <span>Balance:</span>
-                        <span className="font-medium">{(account.balance / 1000000).toFixed(2)} ALGO</span>
+                        <span className="font-medium">{(storage.getAccount()?.balance || 0 / 1000000).toFixed(2)} ALGO</span>
                       </div>
                     )}
                   </div>

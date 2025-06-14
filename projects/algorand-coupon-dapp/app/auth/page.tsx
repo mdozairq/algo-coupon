@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Wallet, Sparkles, User, Store, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,11 @@ export default function AuthPage() {
     username: "",
     password: "",
   })
+  const [mounted, setMounted] = useState(false)
 
-  console.log("account", account);
-  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Add this after the adminCredentials state
   const defaultCredentials = {
@@ -99,7 +101,7 @@ export default function AuthPage() {
                 {connecting || isLoading ? "Connecting..." : "Connect Pera Wallet"}
               </Button>
 
-              {account && (
+              {mounted && account && (
                 <div className="p-4 bg-blue-50 dark:bg-blue-950/50 rounded-lg border border-blue-200 dark:border-blue-800">
                   <p className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Wallet Connected</p>
                   <p className="text-xs font-mono text-blue-600 dark:text-blue-400 break-all">{account.address}</p>
