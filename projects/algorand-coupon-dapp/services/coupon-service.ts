@@ -89,8 +89,28 @@ class CouponService {
       const txId = response.txid;
 
       // Wait for confirmation
-      const confirmedTx = await algodClient.pendingTransactionInformation(txId).do();
+      let confirmedTx;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (attempts < maxAttempts) {
+        confirmedTx = await algodClient.pendingTransactionInformation(txId).do();
+        if (confirmedTx.confirmedRound) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      }
+
+      if (!confirmedTx?.confirmedRound) {
+        throw new Error("Transaction failed to confirm");
+      }
+
+      console.log("confirmedTx:", confirmedTx);
       const assetId = confirmedTx.assetIndex;
+      if (!assetId) {
+        throw new Error("Asset ID not found in confirmed transaction");
+      }
 
       // Try with Supabase first
       try {
@@ -118,7 +138,7 @@ class CouponService {
               expiry: validatedInput.expiry,
               max_redemptions: validatedInput.maxRedemptions,
               terms: validatedInput.terms,
-              asset_id: assetId,
+              asset_id: assetId.toString(),
               data_hash: hashHex,
               created_at_timestamp: Date.now(),
             })
@@ -137,7 +157,7 @@ class CouponService {
               timestamp_ms: Date.now(),
               status: "confirmed",
               tx_hash: txId,
-              asset_id: assetId
+              asset_id: assetId.toString()
             })
 
             return this.mapDatabaseCouponToCoupon(coupon)
