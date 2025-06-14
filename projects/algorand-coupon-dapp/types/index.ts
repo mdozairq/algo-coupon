@@ -24,6 +24,7 @@ export interface Coupon {
   currentRedemptions: number
   terms?: string
   imageUrl?: string
+  dataHash?: string
 }
 
 export enum CouponCategory {

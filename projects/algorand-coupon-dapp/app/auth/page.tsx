@@ -20,6 +20,9 @@ export default function AuthPage() {
     password: "",
   })
 
+  console.log("account", account);
+  
+
   // Add this after the adminCredentials state
   const defaultCredentials = {
     username: process.env.NEXT_PUBLIC_ADMIN_USERNAME || "admin",

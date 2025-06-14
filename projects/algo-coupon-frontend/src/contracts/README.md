@@ -12,3 +12,9 @@ To integrate this react frontend template with your smart contracts codebase, pe
 ## **How to interact with the smart contract?**
 
 The generated client provides a set of functions that can be used to interact with the ABI (Application Binary Interface) compliant Algorand smart contract. For example, if the smart contract has a function called `hello`, the generated client will have a function called `hello` that can be used to interact with the smart contract. Refer to a [full-stack end-to-end starter template](https://github.com/algorandfoundation/algokit-fullstack-template) for a reference example on invoking and interacting with typescript typed clients generated.
+
+interface Coupon {
+  // ... existing fields ...
+  dataHash: string;
+  assetId: number;
+}

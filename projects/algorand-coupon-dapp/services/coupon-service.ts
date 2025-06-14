@@ -2,12 +2,95 @@ import { supabase } from "@/lib/supabase"
 import { fallbackStorage } from "@/lib/storage-fallback"
 import type { Coupon, CreateCouponInput, ClaimCouponInput, RedeemCouponInput } from "@/types"
 import { createCouponSchema, claimCouponSchema, redeemCouponSchema } from "@/lib/validations"
+import algosdk from 'algosdk';
+import { wallet } from "@/lib/wallet"
+
+
+const algodClient = new algosdk.Algodv2(
+  process.env.NEXT_PUBLIC_ALGOD_TOKEN || '',
+  process.env.NEXT_PUBLIC_ALGOD_SERVER || 'https://testnet-api.algonode.cloud',
+  process.env.NEXT_PUBLIC_ALGOD_PORT || 443
+)
 
 class CouponService {
   async createCoupon(input: CreateCouponInput, merchantAddress: string): Promise<Coupon> {
     try {
       // Validate input
       const validatedInput = createCouponSchema.parse(input)
+
+      // Create coupon data hash
+      const couponData = {
+        name: validatedInput.name,
+        description: validatedInput.description,
+        merchant: merchantAddress,
+        category: validatedInput.category,
+        value: validatedInput.value,
+        valueType: validatedInput.valueType,
+        expiry: validatedInput.expiry,
+        maxRedemptions: validatedInput.maxRedemptions,
+        terms: validatedInput.terms,
+        timestamp: Date.now()
+      }
+      
+      // Create hash of coupon data (SHA-256, 32 bytes)
+      const couponDataHashBuffer = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(JSON.stringify(couponData))
+      );
+      const couponDataHash = new Uint8Array(couponDataHashBuffer);
+      const hashHex = Array.from(couponDataHash)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+      // Get suggested params
+      const suggestedParams = await algodClient.getTransactionParams().do();
+
+      // Define ASA parameters
+      const asaParams = {
+        from: merchantAddress,
+        note: undefined,
+        total: BigInt(1),
+        decimals: 0,
+        defaultFrozen: false,
+        manager: merchantAddress,
+        reserve: merchantAddress,
+        freeze: merchantAddress,
+        clawback: merchantAddress,
+        unitName: validatedInput.name.substring(0, 8),
+        assetName: validatedInput.name.substring(0, 32),
+        url: '',
+        metadataHash: couponDataHash,
+      };
+
+      // Create ASA transaction
+      const asaTx = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
+        sender: asaParams.from,
+        note: asaParams.note,
+        total: asaParams.total,
+        decimals: asaParams.decimals,
+        defaultFrozen: asaParams.defaultFrozen,
+        manager: asaParams.manager,
+        reserve: asaParams.reserve,
+        freeze: asaParams.freeze,
+        clawback: asaParams.clawback,
+        unitName: asaParams.unitName,
+        assetName: asaParams.assetName,
+        assetURL: asaParams.url,
+        assetMetadataHash: asaParams.metadataHash,
+        suggestedParams,
+      });
+
+      // Get merchant's account and signer from wallet
+      const { signer } = await wallet.getAccount(merchantAddress);
+
+      // Sign and submit transaction
+      const signedTx = await signer([asaTx], [0]);
+      const response = await algodClient.sendRawTransaction(signedTx[0]).do();
+      const txId = response.txid;
+
+      // Wait for confirmation
+      const confirmedTx = await algodClient.pendingTransactionInformation(txId).do();
+      const assetId = confirmedTx.assetIndex;
 
       // Try with Supabase first
       try {
@@ -20,11 +103,8 @@ class CouponService {
 
         if (error && error.code !== "PGRST116" && error.code !== "DUMMY_CLIENT") throw error
 
-        // Generate asset ID (in real implementation, this would come from Algorand)
-        const assetId = Math.floor(Math.random() * 1000000) + 10000
-
         if (error?.code !== "DUMMY_CLIENT") {
-          // Create new coupon
+          // Create new coupon with ASA info
           const { data: coupon, error: insertError } = await supabase
             .from("coupons")
             .insert({
@@ -39,6 +119,7 @@ class CouponService {
               max_redemptions: validatedInput.maxRedemptions,
               terms: validatedInput.terms,
               asset_id: assetId,
+              data_hash: hashHex,
               created_at_timestamp: Date.now(),
             })
             .select()
@@ -55,11 +136,9 @@ class CouponService {
               merchant_address: merchantAddress,
               timestamp_ms: Date.now(),
               status: "confirmed",
-              tx_hash: `TX_${Math.random().toString(36).toUpperCase().substr(2, 16)}`,
+              tx_hash: txId,
+              asset_id: assetId
             })
-
-            // Simulate blockchain delay
-            await new Promise((resolve) => setTimeout(resolve, 1000))
 
             return this.mapDatabaseCouponToCoupon(coupon)
           }
@@ -73,10 +152,7 @@ class CouponService {
       const merchants = fallbackStorage.getMerchants()
       const merchant = merchants.find((m) => m.address === merchantAddress)
 
-      // Generate asset ID
-      const assetId = Math.floor(Math.random() * 1000000) + 10000
-
-      // Create new coupon
+      // Create new coupon with ASA info
       const newCoupon: Coupon = {
         id: `coupon-${Date.now()}`,
         name: validatedInput.name,
@@ -89,7 +165,8 @@ class CouponService {
         expiry: validatedInput.expiry,
         claimed: false,
         redeemed: false,
-        assetId,
+        assetId: Number(assetId),
+        dataHash: hashHex,
         createdAt: Date.now(),
         currentRedemptions: 0,
         maxRedemptions: validatedInput.maxRedemptions,
@@ -107,14 +184,12 @@ class CouponService {
         userAddress: merchantAddress,
         merchantAddress,
         timestamp: Date.now(),
-        txHash: `TX_${Math.random().toString(36).toUpperCase().substr(2, 16)}`,
+        txHash: txId,
+        assetId,
         status: "confirmed" as const,
       }
 
       fallbackStorage.setTransactions([newTransaction, ...transactions])
-
-      // Simulate blockchain delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
 
       return newCoupon
     } catch (error) {
@@ -485,7 +560,7 @@ class CouponService {
       expiry: dbCoupon.expiry,
       claimed: dbCoupon.claimed,
       redeemed: dbCoupon.redeemed,
-      assetId: dbCoupon.asset_id,
+      assetId: Number(dbCoupon.asset_id),
       createdAt: dbCoupon.created_at_timestamp,
       claimedAt: dbCoupon.claimed_at,
       redeemedAt: dbCoupon.redeemed_at,
@@ -493,6 +568,7 @@ class CouponService {
       currentRedemptions: dbCoupon.current_redemptions,
       terms: dbCoupon.terms,
       imageUrl: dbCoupon.image_url,
+      dataHash: dbCoupon.data_hash,
     }
   }
 }

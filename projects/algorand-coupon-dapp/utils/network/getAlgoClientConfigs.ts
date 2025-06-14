@@ -1,41 +1,33 @@
 import { AlgoViteClientConfig, AlgoViteKMDConfig } from '../../interfaces/network'
 
-export function getAlgodConfigFromViteEnvironment(): AlgoViteClientConfig {
-  if (!import.meta.env.VITE_ALGOD_SERVER) {
-    throw new Error('Attempt to get default algod configuration without specifying VITE_ALGOD_SERVER in the environment variables')
-  }
 
+export function getAlgodConfigFromViteEnvironment(): AlgoViteClientConfig {
   return {
-    server: import.meta.env.VITE_ALGOD_SERVER,
-    port: import.meta.env.VITE_ALGOD_PORT,
-    token: import.meta.env.VITE_ALGOD_TOKEN,
-    network: import.meta.env.VITE_ALGOD_NETWORK,
+    server: process.env.NEXT_PUBLIC_ALGOD_SERVER || 'https://testnet-api.algonode.cloud',
+    port: Number(process.env.NEXT_PUBLIC_ALGOD_PORT) || 443,
+    token: process.env.NEXT_PUBLIC_ALGOD_TOKEN || '',
+    network: process.env.NEXT_PUBLIC_ALGOD_NETWORK || 'testnet',
   }
 }
 
 export function getIndexerConfigFromViteEnvironment(): AlgoViteClientConfig {
-  if (!import.meta.env.VITE_INDEXER_SERVER) {
+  if (!process.env.VITE_INDEXER_SERVER) {
     throw new Error('Attempt to get default algod configuration without specifying VITE_INDEXER_SERVER in the environment variables')
   }
 
   return {
-    server: import.meta.env.VITE_INDEXER_SERVER,
-    port: import.meta.env.VITE_INDEXER_PORT,
-    token: import.meta.env.VITE_INDEXER_TOKEN,
-    network: import.meta.env.VITE_ALGOD_NETWORK,
+    server: process.env.VITE_INDEXER_SERVER,
+    port: process.env.VITE_INDEXER_PORT || 443,
+    token: process.env.VITE_INDEXER_TOKEN,
+    network: process.env.VITE_ALGOD_NETWORK || 'testnet',
   }
 }
 
-export function getKmdConfigFromViteEnvironment(): AlgoViteKMDConfig {
-  if (!import.meta.env.VITE_KMD_SERVER) {
-    throw new Error('Attempt to get default kmd configuration without specifying VITE_KMD_SERVER in the environment variables')
-  }
-
+export function getKmdConfigFromViteEnvironment(): AlgoViteClientConfig {
   return {
-    server: import.meta.env.VITE_KMD_SERVER,
-    port: import.meta.env.VITE_KMD_PORT,
-    token: import.meta.env.VITE_KMD_TOKEN,
-    wallet: import.meta.env.VITE_KMD_WALLET,
-    password: import.meta.env.VITE_KMD_PASSWORD,
+    server: process.env.NEXT_PUBLIC_KMD_SERVER || 'http://localhost',
+    port: Number(process.env.NEXT_PUBLIC_KMD_PORT) || 4002,
+    token: process.env.NEXT_PUBLIC_KMD_TOKEN || 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    network: 'localnet',
   }
 }

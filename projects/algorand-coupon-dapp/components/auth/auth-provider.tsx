@@ -6,6 +6,7 @@ import { storage } from "@/lib/storage"
 import { useWallet, type WalletAccount, type Wallet } from "@txnlab/use-wallet-react"
 import { toast } from "@/hooks/use-toast"
 import type { AuthState, User } from "@/types/auth"
+import { wallet } from "@/lib/wallet"
 
 interface AuthContextType extends AuthState {
   login: (address?: string) => Promise<void>
@@ -28,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error: null,
   })
   
-  const { activeAccount, wallets, isReady } = useWallet()
+  const { activeAccount, wallets, isReady, transactionSigner } = useWallet()
   const isWalletReady = isReady && !authState.isLoading
 
   const fetchUser = useCallback(async (address: string): Promise<User | null> => {
@@ -79,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         if (isReady && activeAccount) {
+          // Initialize wallet service
+          wallet.setWallet(transactionSigner!, activeAccount);
+          
           const user = await fetchUser(activeAccount.address)
           if (user) {
             setAuthState({
@@ -113,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     handleWalletChange()
-  }, [isReady, activeAccount, authState.isAuthenticated, fetchUser])
+  }, [isReady, activeAccount, authState.isAuthenticated, fetchUser, transactionSigner])
 
   const refreshUser = useCallback(async () => {
     if (!activeAccount?.address) return
